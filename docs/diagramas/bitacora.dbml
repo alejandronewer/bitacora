@@ -1,0 +1,738 @@
+// ==========================================================
+// DBML - Bitácora Operativa (Laravel + MySQL 8)
+// - Prefijos por módulo: dm_, entrada_, inv_, cat_
+// ==========================================================
+
+// ==========================================================
+// 1) USUARIOS (Laravel Auth + Spatie)
+// ==========================================================
+
+// Usuarios del portal
+Table usuarios {
+  id bigint [primary key, increment]
+  nombre varchar(200) [not null]
+  correo varchar(200) [not null, unique]
+  password varchar(255) [not null] // Laravel Auth estándar
+  activo tinyint [not null, default: 1]
+
+  rpe varchar(5) [null, unique]
+  rtt varchar(5) [null, unique]
+  estatus_actual enum('Temporal', 'Base') [not null]
+
+  ultimo_acceso datetime [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (activo)
+  }
+}
+
+// ==========================================================
+// 2) CONFIGURACIONES
+// ==========================================================
+
+// Parámetros generales del portal
+Table configuracion_sistema {
+  id bigint [primary key, increment]
+  clave varchar(120) [not null, unique]
+  valor varchar(255) [not null]
+  tipo enum('int','bool','string') [not null, default: 'string']
+  descripcion varchar(255) [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+}
+
+// Parámetros de configuración del usuario
+Table configuracion_usuario {
+  id bigint [primary key, increment]
+  usuario_id bigint [not null]
+
+  clave varchar(120) [not null]
+  valor varchar(255) [not null]
+  tipo enum('int','bool','string') [not null, default: 'string']
+  descripcion varchar(255) [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (usuario_id, clave) [unique]
+    (usuario_id)
+  }
+}
+
+// ==========================================================
+// 3) DATOS DE UBICACIÓN TÉCNICA (SAP-Like, 8 niveles fijos)
+// ==========================================================
+
+// Ubicaciones Técnicas (SAP-Like)
+Table dm_ubicaciones_tecnicas {
+  id bigint [primary key, increment]
+  codigo varchar(80) [not null, unique]
+  nombre varchar(200) [not null]
+
+  nivel_1 char(2) [not null]
+  nivel_2 char(4) [null]
+  nivel_3 char(2) [null]
+  nivel_4 char(3) [null]
+  nivel_5 char(2) [null]
+  nivel_6 char(5) [null]
+  nivel_7 char(3) [null] // Aviso: se han detectado datos con 2 caracteres; requieren validación.
+  nivel_8 char(2) [null]
+
+  activo tinyint [not null, default: 1]
+
+  fuente enum('Manual','Importacion') [not null, default: 'Manual']
+  last_sync_at datetime [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (nivel_1)
+    (nivel_1, nivel_2)
+    (nivel_3)
+    (nivel_4)
+    (nivel_5)
+    (nivel_6)
+    (nivel_7)
+    (nivel_8)
+    (activo)
+  }
+}
+
+// Catálogo auxiliar por nivel/código de ubicaciones técnicas.
+Table dm_ubicacion_detalle_nivel {
+  id bigint [primary key, increment]
+  nivel tinyint [not null] // 1..8
+  codigo varchar(20) [not null]
+  nombre varchar(160) [null]
+  descripcion varchar(255) [null]
+
+  rama_nivel_3 char(2) [not null, default: '--']
+
+  activo tinyint [not null, default: 1]
+  origen enum('Detectado','Homologado') [not null, default: 'Detectado']
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (nivel, codigo, rama_nivel_3) [unique]
+    (nivel, rama_nivel_3)
+    (activo)
+  }
+}
+
+// ==========================================================
+// 4) DATOS DE EQUIPOS (SAP-Like)
+// ==========================================================
+
+// Inventario de Equipos SAP/R3
+Table dm_equipos {
+  id bigint [primary key, increment]
+  codigo varchar(80) [not null, unique]
+  nombre varchar(200) [not null]
+
+  ubicacion_tecnica_id bigint [null]
+  area varchar(40) [null] // Ej. CUN (Comunicaciones Unificadas), DAT (Redes de Datos) [Código: ArE]
+
+  activo tinyint [not null, default: 1]
+  fuente enum('Manual','Importacion') [not null, default: 'Manual']
+  last_sync_at datetime [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (ubicacion_tecnica_id)
+    (area)
+    (activo)
+  }
+}
+
+// ==========================================================
+// 5) CATÁLOGOS TEMÁTICOS Y DE IMPACTOS
+// ==========================================================
+
+// Clasificar por TEMA. Ej. Operación, Documentación, Planeación.
+Table cat_entrada_criterio {
+  id bigint [primary key, increment]
+  codigo varchar(60) [not null, unique]
+  nombre varchar(120) [not null]
+  descripcion varchar(255) [null]
+  orden int [null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (activo)
+    (orden)
+  }
+}
+
+// Clasificar por IMPACTO. Ej. Sin impacto, Menor, Mayor.
+Table cat_entrada_impacto {
+  id bigint [primary key, increment]
+  codigo varchar(60) [not null, unique]
+  nombre varchar(120) [not null]
+  descripcion varchar(255) [null]
+  severidad int [null]
+  orden int [null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (activo)
+    (orden)
+    (severidad)
+  }
+}
+
+// ==========================================================
+// 6) PM Mantenimiento de Planta (SAP-Like simplificado)
+// ==========================================================
+
+// Ej. Actividad Programada, Actividad No Programada
+Table pm_clase_orden {
+  id bigint [primary key, increment]
+  nombre varchar(120) [not null, unique]
+  descripcion varchar(255) [null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (activo)
+  }
+}
+
+// Ej. Preventivo, Predictivo, Correctivo, Apoyo
+Table pm_clase_actividad {
+  id bigint [primary key, increment]
+  nombre varchar(120) [not null, unique]
+  descripcion varchar(255) [null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (activo)
+  }
+}
+
+// Relación entre Clase Orden y Clase Actividad
+Table pm_matriz_orden_actividad {
+  id bigint [primary key, increment]
+  pm_clase_orden_id bigint [not null]
+  pm_clase_actividad_id bigint [not null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (pm_clase_orden_id, pm_clase_actividad_id) [unique]
+    (activo)
+  }
+}
+
+// ==========================================================
+// 7) BITÁCORA
+// ==========================================================
+
+// Entradas/Registros del Relatorio/Bitácora
+Table entradas_bitacora {
+  id bigint [primary key, increment]
+
+  titulo varchar(255) [not null]
+  cuerpo_html longtext [not null]
+  cuerpo_texto longtext [not null]
+  resumen_tecnico longtext [null]
+
+  fecha_inicio datetime [not null]
+  fecha_fin datetime [null]
+
+  usuario_id bigint [not null]
+
+  ubicacion_tecnica_id bigint [null]
+  equipo_id bigint [null]
+
+  ubicacion_manual varchar(255) [null]
+  equipo_manual varchar(255) [null]
+
+  entrada_criterio_id bigint [null] // Tema. Ej. Operación, Documentación, Planeación.
+  entrada_impacto_id bigint [null]  // Impacto operativo. Ej. Menor, Mayor, Crítico.
+
+  pm_clase_orden_id bigint [null]
+  pm_clase_actividad_id bigint [null]
+
+  publicado tinyint [not null, default: 0]
+  publicado_at datetime [null]
+
+  tipo_registro enum('operativo','inventario') [not null, default: 'operativo']
+  accion_inventario enum('alta','baja','cambio') [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (publicado, fecha_inicio)
+    (fecha_inicio)
+    (usuario_id, fecha_inicio)
+    (ubicacion_tecnica_id, fecha_inicio)
+    (equipo_id, fecha_inicio)
+    (entrada_criterio_id, fecha_inicio)
+    (entrada_impacto_id, fecha_inicio)
+    (pm_clase_orden_id, fecha_inicio)
+    (pm_clase_actividad_id, fecha_inicio)
+  }
+}
+
+// Clasificar/Relacionar ubicación técnica del catálogo (SAP-Like)
+Table entrada_ubicaciones {
+  entrada_id bigint [not null]
+  ubicacion_tecnica_id bigint [not null]
+
+  Indexes {
+    (entrada_id, ubicacion_tecnica_id) [pk]
+    (ubicacion_tecnica_id)
+  }
+}
+
+// Clasificar/relacionar equipos del catálogo (SAP-Like)
+Table entrada_equipos {
+  entrada_id bigint [not null]
+  equipo_id bigint [not null]
+
+  Indexes {
+    (entrada_id, equipo_id) [pk]
+    (equipo_id)
+  }
+}
+
+// Indica FALLA o ANOMALÍA. Maneja cardinalidad 0..1 / (0,1).
+Table entrada_eventos_detectados {
+  entrada_id bigint [primary key]
+  tipo_evento enum('FALLA','ANOMALIA') [not null]
+  detalle varchar(255) [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (tipo_evento)
+  }
+}
+
+// ==========================================================
+// 8) ADJUNTOS (De Bitácora)
+// ==========================================================
+
+// Adjuntos: imágenes y archivos (PDF, WORD, EXCEL)
+Table adjuntos {
+  id bigint [primary key, increment]
+  entrada_id bigint [null]
+  usuario_id bigint [not null]
+
+  tipo enum('imagen','archivo') [not null]
+  nombre_original varchar(255) [not null]
+
+  mime_original varchar(120) [null]
+  tamano_bytes_original bigint [null]
+
+  extension_final varchar(10) [not null, default: 'png']
+  mime_final varchar(120) [not null, default: 'image/png']
+  tamano_bytes_final bigint [null]
+
+  ancho int [null]
+  alto int [null]
+
+  ruta varchar(255) [not null]
+  sha256 char(64) [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (entrada_id)
+    (usuario_id, created_at)
+  }
+}
+
+// ==========================================================
+// 9) INVENTARIO MULTI-RED (Datos desde NMS/EMS)
+// ==========================================================
+
+// Catálogo de redes de comunicaciones. Ej. Ribbon LightSoft, OTN-System Xtran
+Table inv_redes {
+  id bigint [primary key, increment]
+  codigo varchar(40) [not null, unique]
+  nombre varchar(120) [not null]
+  descripcion varchar(255) [null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (activo)
+  }
+}
+
+// Catálogo de dominios tecnológicos. Ej. MPLS-TP, SDH/SONET, IP/MPLS
+Table inv_dominios {
+  id bigint [primary key, increment]
+  codigo varchar(40) [not null, unique]
+  nombre varchar(120) [not null]
+  descripcion varchar(255) [null]
+  orden int [null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (orden)
+    (activo)
+  }
+}
+
+// Relación entre redes y dominios.
+Table inv_red_dominios {
+  red_id bigint [not null]
+  dominio_id bigint [not null]
+
+  Indexes {
+    (red_id, dominio_id) [pk]
+    (dominio_id)
+  }
+}
+
+// Catálogo de elementos de red (equipos, servicios, enlaces)
+Table inv_elementos_redes {
+  id bigint [primary key, increment]
+  red_id bigint [not null]
+
+  tipo enum('nodo','enlace','servicio','tunel','trail') [not null]
+  codigo varchar(120) [not null]
+  nombre varchar(200) [null]
+
+  estado enum('activo','baja','planificado','desconocido') [not null, default: 'activo']
+  fecha_alta datetime [null]
+  fecha_baja datetime [null]
+  updated_at_fuente datetime [null]
+
+  origen enum('manual','csv','integracion') [not null, default: 'manual']
+  observaciones varchar(255) [null]
+
+  last_seen_importacion_id bigint [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (red_id, tipo, codigo) [unique]
+    (red_id, estado)
+    (red_id, tipo)
+    (last_seen_importacion_id)
+  }
+}
+
+// Extensión de inv_elementos_redes para tipo nodo (MODELO GUÍA DE LIGHTSOFT).
+Table inv_detalle_nodos {
+  id bigint [primary key, increment]
+  elemento_red_id bigint [not null, unique]
+
+  ne_id bigint [null]
+  ne_dbid bigint [null]
+  dn_externo varchar(255) [null]
+  native_name varchar(180) [null]
+  user_label varchar(180) [null]
+  nombre_producto varchar(120) [null]
+  tipo_equipo varchar(120) [null]
+  version_me varchar(120) [null]
+  direccion_red varchar(120) [null]
+  nombre_grupo varchar(120) [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (ne_dbid)
+    (native_name)
+    (direccion_red)
+  }
+}
+
+// Extensión de inv_elementos_redes para tipo servicio (MODELO GUÍA DE LIGHTSOFT).
+Table inv_detalle_servicios {
+  id bigint [primary key, increment]
+  elemento_red_id bigint [not null, unique]
+
+  instancia_servicio_id bigint [null]
+  user_label varchar(180) [null]
+  cliente varchar(180) [null]
+  tipo_servicio varchar(80) [null]
+  ethvpn_id varchar(120) [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (instancia_servicio_id)
+    (tipo_servicio)
+    (ethvpn_id)
+  }
+}
+
+// Extensión de inv_elementos_redes para tipo enlace (MODELO GUÍA DE LIGHTSOFT).
+Table inv_detalle_enlaces {
+  id bigint [primary key, increment]
+  elemento_red_id bigint [not null, unique]
+
+  instancia_enlace_id bigint [null]
+  motlink_label varchar(180) [null]
+  trail_id bigint [null]
+  nodo_a_ne_id bigint [null]
+  nodo_z_ne_id bigint [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (instancia_enlace_id)
+    (trail_id)
+    (nodo_a_ne_id)
+    (nodo_z_ne_id)
+  }
+}
+
+// Extensión de inv_elementos_redes para tipo túnel (MODELO GUÍA DE LIGHTSOFT).
+Table inv_detalle_tuneles {
+  id bigint [primary key, increment]
+  elemento_red_id bigint [not null, unique]
+
+  instancia_tunel_id bigint [null]
+  user_label varchar(180) [null]
+  cliente varchar(180) [null]
+  tipo_tunel varchar(80) [null]
+  ethvpn_id varchar(120) [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (instancia_tunel_id)
+    (tipo_tunel)
+    (ethvpn_id)
+  }
+}
+
+// Relación entre elementos de red y entradas de bitácora.
+Table inv_entrada_elementos_red {
+  entrada_id bigint [not null]
+  elemento_red_id bigint [not null]
+
+  Indexes {
+    (entrada_id, elemento_red_id) [pk]
+    (elemento_red_id)
+  }
+}
+
+// ==========================================================
+// 10) REGLAS DE IMPORTACIÓN (INVENTARIO)
+// ==========================================================
+
+// Ejecuciones de importación.
+Table inv_importaciones_redes {
+  id bigint [primary key, increment]
+  red_id bigint [not null]
+  regla_id bigint [null]
+  usuario_id bigint [not null]
+
+  archivo_nombre varchar(255) [not null]
+  fuente varchar(255) [null]
+  hash_archivo char(64) [null]
+
+  estado enum('procesando','completado','fallido') [not null, default: 'procesando']
+
+  total_registros int [null]
+  procesados int [null]
+  creados int [null]
+  actualizados int [null]
+  marcados_baja int [null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (red_id, created_at)
+    (regla_id, created_at)
+    (usuario_id, created_at)
+  }
+}
+
+// Reglas para importación de archivos por red y tipo de elemento.
+Table inv_import_reglas {
+  id bigint [primary key, increment]
+  red_id bigint [not null]
+  nombre varchar(120) [not null]
+  tipo_elemento enum('nodo','enlace','servicio','tunel') [not null]
+  tabla_destino varchar(80) [not null, default: 'inv_elementos_redes']
+  archivo_patron varchar(255) [null]
+  delimitador char(1) [not null, default: ',']
+  usa_comillas tinyint [not null, default: 1]
+  tiene_encabezado tinyint [not null, default: 0]
+  encoding varchar(40) [not null, default: 'utf-8']
+  activo tinyint [not null, default: 1]
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (red_id, nombre) [unique]
+    (red_id, activo)
+  }
+}
+
+// Mapeo de campos para reglas de importación.
+Table inv_import_regla_campos {
+  id bigint [primary key, increment]
+  regla_id bigint [not null]
+  columna_fuente varchar(120) [not null]
+  campo_destino varchar(120) [not null]
+  transformacion varchar(80) [null]
+  por_defecto varchar(255) [null]
+  es_clave_upsert tinyint [not null, default: 0]
+  orden smallint [not null, default: 0]
+  activo tinyint [not null, default: 1]
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (regla_id, columna_fuente, campo_destino) [unique]
+    (regla_id, activo, orden)
+  }
+}
+
+// Errores de la importación.
+Table inv_import_errores {
+  id bigint [primary key, increment]
+  importacion_id bigint [not null]
+  fila_numero int [null]
+  campo varchar(120) [null]
+  valor varchar(255) [null]
+  mensaje varchar(255) [not null]
+  created_at datetime [not null]
+
+  Indexes {
+    (importacion_id, fila_numero)
+  }
+}
+
+// ==========================================================
+// 11) REFERENCIAS EXTERNAS A OTROS SISTEMAS
+// ==========================================================
+
+// Ej. Eventos RNFO, Incidentes, Licencias
+Table sistemas_externos {
+  id bigint [primary key, increment]
+  codigo varchar(80) [not null, unique]
+  nombre varchar(120) [not null]
+  patron_regex varchar(255) [null]
+  activo tinyint [not null, default: 1]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (activo)
+  }
+}
+
+// Número de folio de sistemas externos. Ej. 20251231-9999 (Eventos RNFO)
+Table referencias_externas {
+  id bigint [primary key, increment]
+  entrada_id bigint [not null]
+
+  sistema_externo_id bigint [not null]
+  externo_id varchar(120) [not null]
+
+  created_at datetime [not null]
+  updated_at datetime [null]
+
+  Indexes {
+    (entrada_id)
+    (sistema_externo_id)
+    (entrada_id, sistema_externo_id, externo_id) [unique]
+  }
+}
+
+// ==========================================================
+// RELACIONES (Refs)
+// ==========================================================
+
+// Usuarios
+Ref: configuracion_usuario.usuario_id > usuarios.id [delete: restrict]
+
+// Ubicación técnica SAP-like (8 niveles fijos) y equipos SAP-like
+Ref: dm_equipos.ubicacion_tecnica_id > dm_ubicaciones_tecnicas.id
+
+// Catálogos de entrada (Tema/Impacto)
+Ref: entradas_bitacora.entrada_criterio_id > cat_entrada_criterio.id
+Ref: entradas_bitacora.entrada_impacto_id > cat_entrada_impacto.id
+
+// PM-like
+Ref: pm_matriz_orden_actividad.pm_clase_orden_id > pm_clase_orden.id
+Ref: pm_matriz_orden_actividad.pm_clase_actividad_id > pm_clase_actividad.id
+Ref: entradas_bitacora.pm_clase_orden_id > pm_clase_orden.id
+Ref: entradas_bitacora.pm_clase_actividad_id > pm_clase_actividad.id
+
+// Bitácora
+Ref: entradas_bitacora.usuario_id > usuarios.id [delete: restrict]
+Ref: entradas_bitacora.ubicacion_tecnica_id > dm_ubicaciones_tecnicas.id
+Ref: entradas_bitacora.equipo_id > dm_equipos.id
+
+Ref: entrada_ubicaciones.entrada_id > entradas_bitacora.id
+Ref: entrada_ubicaciones.ubicacion_tecnica_id > dm_ubicaciones_tecnicas.id
+
+Ref: entrada_equipos.entrada_id > entradas_bitacora.id
+Ref: entrada_equipos.equipo_id > dm_equipos.id
+
+Ref: entrada_eventos_detectados.entrada_id > entradas_bitacora.id
+
+Ref: adjuntos.entrada_id > entradas_bitacora.id
+Ref: adjuntos.usuario_id > usuarios.id [delete: restrict]
+
+// Inventario
+Ref: inv_importaciones_redes.red_id > inv_redes.id
+Ref: inv_importaciones_redes.regla_id > inv_import_reglas.id
+Ref: inv_importaciones_redes.usuario_id > usuarios.id [delete: restrict]
+Ref: inv_import_reglas.red_id > inv_redes.id
+Ref: inv_import_regla_campos.regla_id > inv_import_reglas.id
+Ref: inv_import_errores.importacion_id > inv_importaciones_redes.id
+Ref: inv_elementos_redes.red_id > inv_redes.id
+Ref: inv_elementos_redes.last_seen_importacion_id > inv_importaciones_redes.id
+Ref: inv_detalle_nodos.elemento_red_id > inv_elementos_redes.id
+Ref: inv_detalle_servicios.elemento_red_id > inv_elementos_redes.id
+Ref: inv_detalle_enlaces.elemento_red_id > inv_elementos_redes.id
+Ref: inv_detalle_tuneles.elemento_red_id > inv_elementos_redes.id
+
+Ref: inv_red_dominios.red_id > inv_redes.id
+Ref: inv_red_dominios.dominio_id > inv_dominios.id
+
+Ref: inv_entrada_elementos_red.entrada_id > entradas_bitacora.id
+Ref: inv_entrada_elementos_red.elemento_red_id > inv_elementos_redes.id
+
+// Referencias externas
+Ref: referencias_externas.entrada_id > entradas_bitacora.id
+Ref: referencias_externas.sistema_externo_id > sistemas_externos.id

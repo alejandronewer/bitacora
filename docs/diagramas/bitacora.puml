@@ -1,0 +1,126 @@
+@startuml
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam wrapWidth 220
+hide stereotypes
+
+title Bitácora Operativa - Modelo Alto Nivel (bitacora.dbml)
+
+package "1) Usuarios" {
+  [usuarios]
+}
+
+package "2) Configuración" {
+  [configuracion_sistema]
+  [configuracion_usuario]
+}
+
+package "3) SAP-like Ubicaciones y Equipos" {
+  [dm_ubicaciones_tecnicas]
+  [dm_ubicacion_detalle_nivel]
+  [dm_equipos]
+}
+
+package "4) Catálogos operativos" {
+  [cat_entrada_criterio]
+  [cat_entrada_impacto]
+}
+
+package "5) PM simplificado" {
+  [pm_clase_orden]
+  [pm_clase_actividad]
+  [pm_matriz_orden_actividad]
+}
+
+package "6) Bitácora" {
+  [entradas_bitacora]
+  [entrada_ubicaciones]
+  [entrada_equipos]
+  [entrada_eventos_detectados]
+  [adjuntos]
+}
+
+package "7) Inventario NMS/EMS" {
+  [inv_redes]
+  [inv_dominios]
+  [inv_red_dominios]
+  [inv_elementos_redes]
+  [inv_detalle_nodos]
+  [inv_detalle_servicios]
+  [inv_detalle_enlaces]
+  [inv_detalle_tuneles]
+  [inv_entrada_elementos_red]
+  [inv_importaciones_redes]
+  [inv_import_reglas]
+  [inv_import_regla_campos]
+  [inv_import_errores]
+}
+
+package "8) Referencias externas" {
+  [sistemas_externos]
+  [referencias_externas]
+}
+
+' Usuarios
+[usuarios] --> [configuracion_usuario] : preferencias
+[usuarios] --> [entradas_bitacora] : autor
+[usuarios] --> [adjuntos] : propietario
+[usuarios] --> [inv_importaciones_redes] : ejecuta importación
+
+' SAP-like
+[dm_ubicaciones_tecnicas] --> [dm_equipos] : 1:N
+[dm_ubicaciones_tecnicas] --> [entradas_bitacora] : ubicación principal
+[dm_equipos] --> [entradas_bitacora] : equipo principal
+[entradas_bitacora] --> [entrada_ubicaciones] : N:M
+[entradas_bitacora] --> [entrada_equipos] : N:M
+[dm_ubicaciones_tecnicas] --> [entrada_ubicaciones]
+[dm_equipos] --> [entrada_equipos]
+
+' Catálogos y PM
+[cat_entrada_criterio] --> [entradas_bitacora]
+[cat_entrada_impacto] --> [entradas_bitacora]
+[pm_clase_orden] --> [pm_matriz_orden_actividad]
+[pm_clase_actividad] --> [pm_matriz_orden_actividad]
+[pm_clase_orden] --> [entradas_bitacora]
+[pm_clase_actividad] --> [entradas_bitacora]
+
+' Bitácora
+[entradas_bitacora] --> [entrada_eventos_detectados] : 0..1
+[entradas_bitacora] --> [adjuntos] : 1:N
+
+' Inventario
+[inv_redes] --> [inv_import_reglas]
+[inv_redes] --> [inv_importaciones_redes]
+[inv_import_reglas] --> [inv_import_regla_campos]
+[inv_importaciones_redes] --> [inv_import_errores]
+[inv_import_reglas] --> [inv_importaciones_redes] : regla usada
+[inv_importaciones_redes] --> [inv_elementos_redes] : last_seen
+
+[inv_redes] --> [inv_elementos_redes] : 1:N
+[inv_elementos_redes] --> [inv_detalle_nodos] : 1:1 (nodo)
+[inv_elementos_redes] --> [inv_detalle_servicios] : 1:1 (servicio)
+[inv_elementos_redes] --> [inv_detalle_enlaces] : 1:1 (enlace)
+[inv_elementos_redes] --> [inv_detalle_tuneles] : 1:1 (túnel)
+
+[inv_redes] --> [inv_red_dominios] : N:M
+[inv_dominios] --> [inv_red_dominios] : N:M
+
+[entradas_bitacora] --> [inv_entrada_elementos_red] : N:M
+[inv_elementos_redes] --> [inv_entrada_elementos_red] : N:M
+
+' Referencias externas
+[entradas_bitacora] --> [referencias_externas]
+[sistemas_externos] --> [referencias_externas]
+
+note right of [dm_ubicacion_detalle_nivel]
+  Catálogo auxiliar por nivel (1..8)
+  y rama de nivel 3.
+end note
+
+note right of [inv_elementos_redes]
+  Capa canónica de inventario.
+  tipo: nodo/enlace/servicio/tunel/trail
+  estado: activo/baja/planificado/desconocido
+end note
+@enduml
