@@ -79,19 +79,37 @@
             <div class="flex flex-col sm:flex-row gap-4">
               <div class="flex-1">
                 <label class="text-xs uppercase tracking-wider text-slate-500 dark:text-[#92adc9] font-semibold">Fecha inicio</label>
-                <input
-                  v-model="form.fecha_inicio"
-                  type="datetime-local"
-                  class="mt-2 w-full bg-slate-50 dark:bg-border-dark/60 border border-slate-200 dark:border-border-dark rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
-                />
+                <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    v-model="fechaInicioDate"
+                    type="date"
+                    class="w-full bg-slate-50 dark:bg-border-dark/60 border border-slate-200 dark:border-border-dark rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                  />
+                  <input
+                    v-model="fechaInicioTime"
+                    type="time"
+                    step="60"
+                    class="w-full bg-slate-50 dark:bg-border-dark/60 border border-slate-200 dark:border-border-dark rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    :disabled="!fechaInicioDate"
+                  />
+                </div>
               </div>
               <div class="flex-1">
                 <label class="text-xs uppercase tracking-wider text-slate-500 dark:text-[#92adc9] font-semibold">Fecha fin</label>
-                <input
-                  v-model="form.fecha_fin"
-                  type="datetime-local"
-                  class="mt-2 w-full bg-slate-50 dark:bg-border-dark/60 border border-slate-200 dark:border-border-dark rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
-                />
+                <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    v-model="fechaFinDate"
+                    type="date"
+                    class="w-full bg-slate-50 dark:bg-border-dark/60 border border-slate-200 dark:border-border-dark rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                  />
+                  <input
+                    v-model="fechaFinTime"
+                    type="time"
+                    step="60"
+                    class="w-full bg-slate-50 dark:bg-border-dark/60 border border-slate-200 dark:border-border-dark rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                    :disabled="!fechaFinDate"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -778,6 +796,62 @@ const form = reactive({
   adjuntos: [],
 });
 
+const splitDatetimeLocal = (value) => {
+  const source = String(value || '').trim();
+  if (!source) return { date: '', time: '' };
+  const [datePart = '', rawTime = ''] = source.split('T');
+  const timePart = rawTime.slice(0, 5);
+  return {
+    date: datePart,
+    time: timePart,
+  };
+};
+
+const mergeDatetimeLocal = (datePart, timePart) => {
+  if (!datePart) return '';
+  return `${datePart}T${timePart || '00:00'}`;
+};
+
+const fechaInicioDate = computed({
+  get() {
+    return splitDatetimeLocal(form.fecha_inicio).date;
+  },
+  set(value) {
+    const current = splitDatetimeLocal(form.fecha_inicio);
+    form.fecha_inicio = mergeDatetimeLocal(value, current.time);
+  },
+});
+
+const fechaInicioTime = computed({
+  get() {
+    return splitDatetimeLocal(form.fecha_inicio).time;
+  },
+  set(value) {
+    const current = splitDatetimeLocal(form.fecha_inicio);
+    form.fecha_inicio = mergeDatetimeLocal(current.date, value);
+  },
+});
+
+const fechaFinDate = computed({
+  get() {
+    return splitDatetimeLocal(form.fecha_fin).date;
+  },
+  set(value) {
+    const current = splitDatetimeLocal(form.fecha_fin);
+    form.fecha_fin = mergeDatetimeLocal(value, current.time);
+  },
+});
+
+const fechaFinTime = computed({
+  get() {
+    return splitDatetimeLocal(form.fecha_fin).time;
+  },
+  set(value) {
+    const current = splitDatetimeLocal(form.fecha_fin);
+    form.fecha_fin = mergeDatetimeLocal(current.date, value);
+  },
+});
+
 const config = reactive({
   max_adjuntos_por_entrada: null,
   imagenes_max_mb: null,
@@ -822,6 +896,7 @@ const uploadingFile = ref(false);
 const uploadFileError = ref('');
 const archivosAdjuntos = ref([]);
 const adjuntosEliminar = ref([]);
+const adjuntosMeta = ref([]);
 const loadingEntrada = ref(!!route.params.id);
 const referenciaForm = reactive({
   sistema_id: '',
@@ -979,6 +1054,127 @@ const onInput = () => {
   if (!editor.value) return;
   form.cuerpo_html = editor.value.getHTML();
   form.cuerpo_texto = editor.value.getText();
+};
+
+const parseAdjuntoId = (value) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const resolveAdjuntoUrl = (adjunto) => {
+  if (!adjunto) return null;
+  if (adjunto.url) return adjunto.url;
+  if (!adjunto.ruta) return null;
+  const ruta = String(adjunto.ruta).replace(/^\/+/, '');
+  return ruta.startsWith('storage/') ? `/${ruta}` : `/storage/${ruta}`;
+};
+
+const normalizePathFromUrl = (raw) => {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    return new URL(value, window.location.origin).pathname.replace(/\/+$/, '');
+  } catch {
+    return value.split('?')[0].split('#')[0].replace(/\/+$/, '');
+  }
+};
+
+const isImagenAdjunto = (adjunto) => {
+  const tipo = String(adjunto?.tipo || '').toLowerCase();
+  if (tipo) return tipo === 'imagen';
+  const mime = String(adjunto?.mime_final || adjunto?.mime_original || '').toLowerCase();
+  return mime.startsWith('image/');
+};
+
+const upsertAdjuntoMeta = (adjunto) => {
+  if (!adjunto?.id) return;
+  const id = String(adjunto.id);
+  const index = adjuntosMeta.value.findIndex((item) => String(item.id) === id);
+  if (index === -1) {
+    adjuntosMeta.value = [...adjuntosMeta.value, adjunto];
+    return;
+  }
+  const next = [...adjuntosMeta.value];
+  next[index] = { ...next[index], ...adjunto };
+  adjuntosMeta.value = next;
+};
+
+const removeAdjuntoMeta = (id) => {
+  if (!id) return;
+  adjuntosMeta.value = adjuntosMeta.value.filter((item) => String(item.id) !== String(id));
+};
+
+const adjuntoMetaById = computed(() =>
+  new Map(adjuntosMeta.value.map((item) => [String(item.id), item]))
+);
+
+const extractImageRefsFromHtml = (html) => {
+  if (!html) return { ids: new Set(), srcPaths: new Set() };
+  const doc = new DOMParser().parseFromString(String(html), 'text/html');
+  const ids = new Set();
+  const srcPaths = new Set();
+  doc.querySelectorAll('img').forEach((img) => {
+    const attrId = img.getAttribute('title') || img.getAttribute('data-adjunto-id');
+    const parsedId = parseAdjuntoId(attrId);
+    if (parsedId) ids.add(parsedId);
+    const src = img.getAttribute('src');
+    const normalizedSrc = normalizePathFromUrl(src);
+    if (normalizedSrc) srcPaths.add(normalizedSrc);
+  });
+  return { ids, srcPaths };
+};
+
+const syncImagenesAdjuntosConEditor = async () => {
+  const { ids: htmlImageIds, srcPaths } = extractImageRefsFromHtml(form.cuerpo_html || '');
+  const idsPresentes = new Set(htmlImageIds);
+
+  for (const meta of adjuntosMeta.value) {
+    if (!isImagenAdjunto(meta)) continue;
+    const id = parseAdjuntoId(meta.id);
+    if (!id) continue;
+    const normalizedPath = normalizePathFromUrl(resolveAdjuntoUrl(meta));
+    if (normalizedPath && srcPaths.has(normalizedPath)) {
+      idsPresentes.add(id);
+    }
+  }
+
+  idsPresentes.forEach((id) => {
+    if (!form.adjuntos.some((adjId) => String(adjId) === String(id))) {
+      form.adjuntos = [...form.adjuntos, id];
+    }
+  });
+
+  const imagenesAsociadas = (form.adjuntos || [])
+    .map((id) => parseAdjuntoId(id))
+    .filter((id) => id !== null)
+    .filter((id) => isImagenAdjunto(adjuntoMetaById.value.get(String(id))));
+
+  const removidas = imagenesAsociadas.filter((id) => !idsPresentes.has(id));
+  if (!removidas.length) return { removidas: 0, temporalesNoEliminadas: 0 };
+
+  let temporalesNoEliminadas = 0;
+  for (const id of removidas) {
+    const meta = adjuntoMetaById.value.get(String(id));
+    const isTemporal = !meta?.entrada_id;
+
+    if (isTemporal) {
+      try {
+        // Imagen temporal: eliminar inmediatamente para no dejar archivo huérfano.
+        // eslint-disable-next-line no-await-in-loop
+        await window.axios.delete(`/api/v1/adjuntos/${id}`);
+      } catch {
+        temporalesNoEliminadas += 1;
+      }
+    } else if (!adjuntosEliminar.value.includes(id)) {
+      adjuntosEliminar.value = [...adjuntosEliminar.value, id];
+    }
+
+    form.adjuntos = form.adjuntos.filter((adjId) => String(adjId) !== String(id));
+    removeAdjuntoMeta(id);
+  }
+
+  return { removidas: removidas.length, temporalesNoEliminadas };
 };
 
 const handlePaste = async (event) => {
@@ -1633,6 +1829,14 @@ const onReferenciaFormInput = () => {
   }
 };
 
+const safeClientId = () => {
+  const cryptoApi = typeof window !== 'undefined' ? window.crypto : null;
+  if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
+  }
+  return `tmp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const addReferenciaExterna = () => {
   if (!referenciaForm.sistema_id || !referenciaForm.externo_id) {
     referenciaForm.error = 'Completa sistema y folio.';
@@ -1653,7 +1857,7 @@ const addReferenciaExterna = () => {
   }
   const sistema = sistemasExternos.value.find((s) => String(s.id) === String(referenciaForm.sistema_id));
   const nuevo = {
-    id: crypto.randomUUID(),
+    id: safeClientId(),
     backend_id: null,
     sistema_id: referenciaForm.sistema_id,
     sistema_nombre: sistema?.nombre || 'Sistema',
@@ -1745,6 +1949,7 @@ const uploadImage = async (file) => {
     const adjunto = response.data?.data ?? response.data;
     if (adjunto?.id) {
       form.adjuntos = [...form.adjuntos, adjunto.id];
+      upsertAdjuntoMeta(adjunto);
     }
     if (adjunto?.url) {
       insertImage(adjunto.url, adjunto.id);
@@ -1801,6 +2006,7 @@ const uploadFile = async (file) => {
     }
     if (adjunto?.id) {
       archivosAdjuntos.value = [...archivosAdjuntos.value, adjunto];
+      upsertAdjuntoMeta(adjunto);
     }
   } catch (error) {
     uploadFileError.value = error.response?.data?.message || 'No se pudo subir el archivo.';
@@ -1825,6 +2031,7 @@ const removeArchivoAdjunto = async (file) => {
   }
   archivosAdjuntos.value = archivosAdjuntos.value.filter((item) => String(item.id) !== String(id));
   form.adjuntos = form.adjuntos.filter((adjId) => String(adjId) !== String(id));
+  removeAdjuntoMeta(id);
 };
 
 const insertImage = (url, adjuntoId) => {
@@ -1881,6 +2088,7 @@ const loadEntrada = async (id) => {
     form.equipos = Array.from(new Set(equiposIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))));
     equiposSeleccionadosCache.value = [...equiposRelacion];
     form.adjuntos = (entrada.adjuntos || []).map((item) => item.id);
+    adjuntosMeta.value = [...(entrada.adjuntos || [])];
     archivosAdjuntos.value = (entrada.adjuntos || []).filter((item) => item.tipo === 'archivo');
     adjuntosEliminar.value = [];
 
@@ -1951,6 +2159,7 @@ const resetForm = async () => {
   form.adjuntos = [];
   adjuntosEliminar.value = [];
   archivosAdjuntos.value = [];
+  adjuntosMeta.value = [];
   referenciasExternas.value = [];
   referenciasEliminar.value = [];
   referenciaForm.sistema_id = '';
@@ -2013,6 +2222,7 @@ const buildPayload = () => {
   const equiposIds = ubicacionModo.value === 'sap'
     ? Array.from(new Set((form.equipos || []).map((id) => normalizeId(id)).filter((id) => id !== null)))
     : [];
+  const inventarioIds = Array.from(new Set((form.inv_elementos || []).map((id) => normalizeId(id)).filter((id) => id !== null)));
 
   const payload = {
     titulo: form.titulo.trim(),
@@ -2031,11 +2241,8 @@ const buildPayload = () => {
     ubicacion_manual: ubicacionModo.value === 'manual' ? normalizeText(form.ubicacion_manual) : null,
     equipo_manual: ubicacionModo.value === 'manual' ? normalizeText(form.equipo_manual) : null,
     equipos: equiposIds.map((id) => ({ id })),
+    inventario_elementos: inventarioIds.map((id) => ({ id })),
   };
-
-  if (form.inv_elementos.length) {
-    payload.inventario_elementos = form.inv_elementos.map((id) => ({ id }));
-  }
 
   if (form.adjuntos.length) {
     payload.adjuntos = [...form.adjuntos];
@@ -2096,7 +2303,9 @@ const guardarEntrada = async (publicar) => {
   }
 
   saving.value = true;
+  let syncAdjuntosResult = { temporalesNoEliminadas: 0 };
   try {
+    syncAdjuntosResult = await syncImagenesAdjuntosConEditor();
     await window.axios.get('/sanctum/csrf-cookie');
     const payload = buildPayload();
     let response;
@@ -2110,6 +2319,9 @@ const guardarEntrada = async (publicar) => {
       entradaId.value = entrada.id;
     }
     entradaPublicada.value = Boolean(entrada?.publicado);
+    // Limpia colas de eliminación ya aplicadas para evitar reenviar IDs inválidos en guardados posteriores.
+    adjuntosEliminar.value = [];
+    referenciasEliminar.value = [];
 
     const referenciasOk = await syncReferenciasPendientes();
 
@@ -2125,6 +2337,8 @@ const guardarEntrada = async (publicar) => {
     saveSuccess.value = isEditMode.value ? 'Entrada actualizada correctamente.' : 'Entrada guardada como borrador.';
     if (!referenciasOk) {
       saveError.value = 'Entrada guardada, pero algunas referencias externas no pudieron registrarse.';
+    } else if (syncAdjuntosResult.temporalesNoEliminadas > 0) {
+      saveError.value = 'Entrada guardada, pero algunas imágenes temporales no pudieron eliminarse en este momento.';
     }
   } catch (error) {
     if (error.response?.status === 422) {

@@ -93,7 +93,7 @@
           <span class="text-slate-300 dark:text-[#233648]">|</span>
           <a class="hover:text-slate-900 dark:hover:text-white transition-colors" :href="links.subger">Subger. de Comunicaciones</a>
           <span class="text-slate-300 dark:text-[#233648]">|</span>
-          <a>v1.0.0</a>
+          <a>v0.1.0</a>
         </div>
       </div>
     </div>

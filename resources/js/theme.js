@@ -121,7 +121,7 @@ export const initTheme = async () => {
   }
 
   try {
-    const userConfig = await fetchConfiguracionUsuario();
+    const userConfig = await fetchConfiguracionUsuario({ skipAuthRedirect: true });
     if (Array.isArray(userConfig)) {
       const userTheme = userConfig.find((item) => item.clave === 'tema.modo')?.valor;
       const userDensity = userConfig.find((item) => item.clave === 'ui.densidad')?.valor;

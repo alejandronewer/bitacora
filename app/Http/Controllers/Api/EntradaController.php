@@ -7,6 +7,7 @@ use App\Http\Requests\Api\StoreEntradaRequest;
 use App\Http\Requests\Api\UpdateEntradaRequest;
 use App\Http\Resources\EntradaResource;
 use App\Models\Adjunto;
+use App\Models\ConfiguracionSistema;
 use App\Models\EntradaBitacora;
 use App\Models\EntradaEventoDetectado;
 use App\Models\PmMatrizOrdenActividad;
@@ -25,6 +26,10 @@ class EntradaController extends Controller
             ->orderByDesc('fecha_inicio');
 
         $user = $request->user();
+        if (! $user && ! $this->bitacoraPublica()) {
+            return response()->json(['message' => 'Debes iniciar sesión para consultar la bitácora.'], 401);
+        }
+
         if (! $user) {
             $query->publicadas();
         } elseif (! $user->hasAnyRole(['administrador', 'operador', 'invitado'])) {
@@ -267,6 +272,10 @@ class EntradaController extends Controller
 
     public function show(Request $request, EntradaBitacora $entrada)
     {
+        if (! $request->user() && ! $this->bitacoraPublica()) {
+            return response()->json(['message' => 'Debes iniciar sesión para consultar la bitácora.'], 401);
+        }
+
         $this->authorize('view', $entrada);
 
         $baseQuery = EntradaBitacora::query()->orderByDesc('fecha_inicio')->orderByDesc('id');
@@ -527,5 +536,26 @@ class EntradaController extends Controller
                     ->update(['entrada_id' => $entrada->id]);
             }
         }
+    }
+
+    private function bitacoraPublica(): bool
+    {
+        $valor = ConfiguracionSistema::query()
+            ->where('clave', 'bitacora_publica')
+            ->value('valor');
+
+        if ($valor === null) {
+            return true;
+        }
+
+        if (is_bool($valor)) {
+            return $valor;
+        }
+
+        if (is_numeric($valor)) {
+            return (int) $valor === 1;
+        }
+
+        return in_array(mb_strtolower(trim((string) $valor)), ['1', 'true', 'yes', 'si', 'sí'], true);
     }
 }

@@ -102,7 +102,7 @@
 
             <div class="rounded-xl border border-slate-200 dark:border-border-dark bg-white/80 dark:bg-[#16222e]/60 p-4">
               <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-[#92adc9] mb-3">Detalle</h3>
-              <div class="text-sm text-slate-700 dark:text-[#92adc9] leading-relaxed space-y-3" v-html="entrada.cuerpo_html"></div>
+              <div class="rich-content text-sm text-slate-700 dark:text-[#92adc9] leading-relaxed" v-html="entrada.cuerpo_html"></div>
             </div>
 
             <div v-if="inventarioElementos.length" class="rounded-xl border border-slate-200 dark:border-border-dark bg-slate-50/80 dark:bg-border-dark/60 p-4">
@@ -253,13 +253,19 @@
             <div v-if="adjuntosImagen.length" class="space-y-2">
               <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-[#92adc9]">Imágenes adjuntas</h3>
               <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                <img
+                <button
                   v-for="img in adjuntosImagen"
                   :key="img.id"
-                  :src="img._url"
-                  :alt="img.nombre_original || 'Imagen adjunta'"
-                  class="rounded-lg border border-slate-200 dark:border-border-dark object-cover"
-                />
+                  type="button"
+                  class="group overflow-hidden rounded-lg border border-slate-200 dark:border-border-dark"
+                  @click="openImagePreview(img)"
+                >
+                  <img
+                    :src="img._url"
+                    :alt="img.nombre_original || 'Imagen adjunta'"
+                    class="h-40 w-full object-cover transition-transform group-hover:scale-105"
+                  />
+                </button>
               </div>
             </div>
 
@@ -408,6 +414,27 @@
           </button>
         </div>
       </div>
+
+      <div
+        v-if="imagePreviewOpen"
+        class="fixed inset-0 z-[70] bg-slate-950/80 p-4 flex items-center justify-center"
+        @click="closeImagePreview"
+      >
+        <div class="relative max-w-6xl w-full" @click.stop>
+          <button
+            type="button"
+            class="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+            @click="closeImagePreview"
+          >
+            <span class="material-symbols-outlined text-base">close</span>
+          </button>
+          <img
+            :src="imagePreviewSrc"
+            :alt="imagePreviewAlt"
+            class="max-h-[86vh] w-full object-contain rounded-xl border border-slate-700/60 bg-slate-900"
+          />
+        </div>
+      </div>
     </main>
 
     <footer class="max-w-[1440px] mx-auto p-8 border-t border-slate-200 dark:border-[#233648] mt-12">
@@ -442,6 +469,9 @@ const error = ref('');
 const appNombre = ref('');
 const authUser = ref(null);
 const ubicacionDetalleNivelesCatalogo = ref([]);
+const imagePreviewOpen = ref(false);
+const imagePreviewSrc = ref('');
+const imagePreviewAlt = ref('Imagen adjunta');
 const links = ref({
   gtrbc: '#',
   subger: '#',
@@ -752,6 +782,19 @@ const goToNext = () => {
   router.push({ name: 'entrada-show', params: { id: entrada.value.next_id } });
 };
 
+const openImagePreview = (img) => {
+  if (!img?._url) return;
+  imagePreviewSrc.value = img._url;
+  imagePreviewAlt.value = img.nombre_original || 'Imagen adjunta';
+  imagePreviewOpen.value = true;
+};
+
+const closeImagePreview = () => {
+  imagePreviewOpen.value = false;
+  imagePreviewSrc.value = '';
+  imagePreviewAlt.value = 'Imagen adjunta';
+};
+
 const loadConfig = async () => {
   try {
     const items = await fetchConfiguracionSistema();
@@ -794,6 +837,7 @@ const loadEntrada = async () => {
   try {
     const response = await window.axios.get(`/api/v1/entradas/${id}`, { skipAuthRedirect: true });
     entrada.value = response.data?.data ?? response.data;
+    closeImagePreview();
   } catch (err) {
     error.value = err.response?.data?.message || 'No se pudo cargar la entrada.';
   } finally {

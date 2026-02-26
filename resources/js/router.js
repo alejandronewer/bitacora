@@ -14,11 +14,12 @@ import UbicacionesEquiposView from './views/UbicacionesEquiposView.vue';
 import EntradaShowView from './views/EntradaShowView.vue';
 import GestionEntradasView from './views/GestionEntradasView.vue';
 import { getAuthUser } from './auth';
+import { fetchConfiguracionSistema } from './api/configuracion';
 
 const routes = [
   { path: '/', redirect: '/timeline' },
-  { path: '/timeline', name: 'timeline', component: TimelineView },
-  { path: '/entradas/:id', name: 'entrada-show', component: EntradaShowView },
+  { path: '/timeline', name: 'timeline', component: TimelineView, meta: { publicBitacoraGate: true } },
+  { path: '/entradas/:id', name: 'entrada-show', component: EntradaShowView, meta: { publicBitacoraGate: true } },
   { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
   { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
   {
@@ -94,7 +95,58 @@ const router = createRouter({
   routes,
 });
 
+const CONFIG_CACHE_MS = 60 * 1000;
+let bitacoraPublicaCache = null;
+let bitacoraPublicaFetchedAt = 0;
+let bitacoraPublicaInFlight = null;
+
+const isTruthy = (value) => {
+  if (value === true || value === 1) return true;
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return ['1', 'true', 'yes', 'si', 'sí'].includes(normalized);
+};
+
+const getBitacoraPublica = async ({ force = false } = {}) => {
+  const now = Date.now();
+  if (!force && bitacoraPublicaCache !== null && now - bitacoraPublicaFetchedAt < CONFIG_CACHE_MS) {
+    return bitacoraPublicaCache;
+  }
+
+  if (bitacoraPublicaInFlight) {
+    return bitacoraPublicaInFlight;
+  }
+
+  bitacoraPublicaInFlight = fetchConfiguracionSistema({ skipAuthRedirect: true })
+    .then((items) => {
+      const config = Array.isArray(items) ? items : [];
+      const value = config.find((item) => item?.clave === 'bitacora_publica')?.valor;
+      bitacoraPublicaCache = value === undefined ? true : isTruthy(value);
+      bitacoraPublicaFetchedAt = Date.now();
+      return bitacoraPublicaCache;
+    })
+    .catch(() => {
+      bitacoraPublicaCache = true;
+      bitacoraPublicaFetchedAt = Date.now();
+      return bitacoraPublicaCache;
+    })
+    .finally(() => {
+      bitacoraPublicaInFlight = null;
+    });
+
+  return bitacoraPublicaInFlight;
+};
+
 router.beforeEach(async (to) => {
+  if (to.meta?.publicBitacoraGate) {
+    const isPublica = await getBitacoraPublica();
+    if (!isPublica) {
+      const user = await getAuthUser();
+      if (!user) {
+        return { name: 'login', query: { redirect: to.fullPath } };
+      }
+    }
+  }
+
   if (to.meta?.guest) {
     const user = await getAuthUser();
     if (user) return { name: 'dashboard' };

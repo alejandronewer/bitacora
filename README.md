@@ -19,6 +19,7 @@ Aplicación web para registrar, publicar y consultar eventos operativos, con int
 - Node.js 20+
 - MySQL 8
 - Extensión PHP GD (procesamiento de imágenes)
+- Otras extensiones `mysqlnd, opcache, pdo, xml, calendar, ctype, curl, dom, exif, ffi, fileinfo, ftp, gd, gettext, iconv, mbstring, mysqli, pdo_mysql, phar, posix, readline, shmop, simplexml, sockets, sysvmsg, sysvsem, sysvshm, tokenizer, xmlreader, xmlwriter, xsl, zip`
 
 ## Arranque rápido (desarrollo)
 1. Copiar variables de entorno:
@@ -241,3 +242,14 @@ También disponible en UI:
 - Datos maestros SAP-like: `docs/guias/DatosMaestrosSAP.md`
 - Modelo de datos DBML: `docs/diagramas/bitacora.dbml`
 - Diagrama PlantUML: `docs/diagramas/bitacora.puml`
+
+## Fixes recientes (pre-release v0.1.0)
+- Corrección de captura de fecha/hora en creación/edición: se reemplazó `datetime-local` por pares `date` + `time` para mejorar compatibilidad entre navegadores.
+- Corrección en generación de IDs temporales de referencias externas: ahora usa `crypto.randomUUID()` cuando está disponible y fallback local en HTTP/contextos sin `window.crypto`.
+- Corrección en desasociación de inventario NMS/EMS: al guardar edición se envía siempre `inventario_elementos`, permitiendo dejar correctamente 0 elementos asociados.
+- Corrección de redirección involuntaria a login en Timeline: se evitó redirección por llamadas opcionales de configuración de usuario sin sesión.
+- Aplicación efectiva de `bitacora_publica` para Timeline y detalle de entrada (frontend y backend): cuando está desactivada exige sesión; cuando está activa permite acceso público.
+- Corrección de render HTML en vista detalle: se agregaron estilos de contenido enriquecido para listas ordenadas/no ordenadas, párrafos, enlaces, blockquotes e imágenes.
+- Corrección de sincronización de imágenes en editor WYSIWYG: al eliminar una imagen del contenido, ahora se desasocia de la entrada (y se elimina temporal/persistida según corresponda).
+- Mejora en vista detalle de adjuntos de imagen: miniaturas clickeables con vista ampliada (modal).
+- Corrección de guardados consecutivos tras eliminar adjuntos: se limpian colas `adjuntos_eliminar` y `referencias_eliminar` después de guardar para evitar errores de validación por IDs ya eliminados.
