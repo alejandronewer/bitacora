@@ -13,6 +13,7 @@ use App\Models\EntradaEventoDetectado;
 use App\Models\PmMatrizOrdenActividad;
 use App\Models\ReferenciaExterna;
 use App\Support\ResumenTecnicoBuilder;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -337,7 +338,7 @@ class EntradaController extends Controller
     {
         $this->authorize('create', EntradaBitacora::class);
 
-        $data = $request->validated();
+        $data = $this->normalizeEntradaDatetimes($request->validated());
 
         if (! $this->pmCombinacionValida($data['pm_clase_orden_id'] ?? null, $data['pm_clase_actividad_id'] ?? null)) {
             return response()->json(['message' => 'Combinacion PM invalida'], 422);
@@ -368,7 +369,7 @@ class EntradaController extends Controller
     {
         $this->authorize('update', $entrada);
 
-        $data = $request->validated();
+        $data = $this->normalizeEntradaDatetimes($request->validated());
 
         if (! $this->pmCombinacionValida($data['pm_clase_orden_id'] ?? null, $data['pm_clase_actividad_id'] ?? null)) {
             return response()->json(['message' => 'Combinacion PM invalida'], 422);
@@ -557,5 +558,23 @@ class EntradaController extends Controller
         }
 
         return in_array(mb_strtolower(trim((string) $valor)), ['1', 'true', 'yes', 'si', 'sí'], true);
+    }
+
+    private function normalizeEntradaDatetimes(array $data): array
+    {
+        foreach (['fecha_inicio', 'fecha_fin'] as $field) {
+            if (! array_key_exists($field, $data)) {
+                continue;
+            }
+
+            if ($data[$field] === null || $data[$field] === '') {
+                $data[$field] = null;
+                continue;
+            }
+
+            $data[$field] = Carbon::parse($data[$field])->format('Y-m-d H:i:s');
+        }
+
+        return $data;
     }
 }

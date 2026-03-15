@@ -773,6 +773,7 @@ import DashboardLayout from '../layouts/DashboardLayout.vue';
 import PaginationBar from '../components/PaginationBar.vue';
 import UbicacionCodigoTooltip from '../components/UbicacionCodigoTooltip.vue';
 import { fetchConfiguracionSistema } from '../api/configuracion';
+import { formatForDatetimeLocalInput } from '../utils/datetime';
 
 const form = reactive({
   titulo: '',
@@ -2045,14 +2046,6 @@ const insertImage = (url, adjuntoId) => {
   onInput();
 };
 
-const formatDatetimeLocal = (value) => {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
 const loadEntrada = async (id) => {
   if (!id) return;
   loadingEntrada.value = true;
@@ -2066,8 +2059,8 @@ const loadEntrada = async (id) => {
     form.titulo = entrada.titulo || '';
     form.cuerpo_html = entrada.cuerpo_html || '';
     form.cuerpo_texto = entrada.cuerpo_texto || '';
-    form.fecha_inicio = formatDatetimeLocal(entrada.fecha_inicio);
-    form.fecha_fin = formatDatetimeLocal(entrada.fecha_fin);
+    form.fecha_inicio = formatForDatetimeLocalInput(entrada.fecha_inicio);
+    form.fecha_fin = formatForDatetimeLocalInput(entrada.fecha_fin);
     form.pm_clase_orden_id = entrada.pm_clase_orden?.id || entrada.pm_clase_orden_id || '';
     form.pm_clase_actividad_id = entrada.pm_clase_actividad?.id || entrada.pm_clase_actividad_id || '';
     form.entrada_criterio_id = entrada.criterio?.id || entrada.entrada_criterio_id || '';

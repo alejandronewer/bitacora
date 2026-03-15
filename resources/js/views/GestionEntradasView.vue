@@ -267,6 +267,7 @@ import DashboardLayout from '../layouts/DashboardLayout.vue';
 import PaginationBar from '../components/PaginationBar.vue';
 import { fetchConfiguracionSistema } from '../api/configuracion';
 import { getAuthUser } from '../auth';
+import { formatDateValue, formatTimeValue } from '../utils/datetime';
 
 const router = useRouter();
 
@@ -326,14 +327,12 @@ const pmActividadesFiltradas = computed(() => {
 
 const formatFecha = (value) => {
   if (!value) return 'No disponible';
-  const date = new Date(value);
-  return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(date);
+  return formatDateValue(value);
 };
 
 const formatHora = (value) => {
   if (!value) return '';
-  const date = new Date(value);
-  return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit' }).format(date);
+  return formatTimeValue(value);
 };
 
 const loadConfig = async () => {

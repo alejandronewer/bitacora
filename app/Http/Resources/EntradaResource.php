@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,10 +16,10 @@ class EntradaResource extends JsonResource
             'cuerpo_html' => $this->cuerpo_html,
             'cuerpo_texto' => $this->cuerpo_texto,
             'resumen_tecnico' => $this->resumen_tecnico,
-            'fecha_inicio' => $this->fecha_inicio,
-            'fecha_fin' => $this->fecha_fin,
+            'fecha_inicio' => $this->formatDateTime($this->fecha_inicio),
+            'fecha_fin' => $this->formatDateTime($this->fecha_fin),
             'publicado' => (bool) $this->publicado,
-            'publicado_at' => $this->publicado_at,
+            'publicado_at' => $this->formatDateTime($this->publicado_at),
             'tipo_registro' => $this->tipo_registro,
             'accion_inventario' => $this->accion_inventario,
             'usuario' => new UserResource($this->whenLoaded('usuario')),
@@ -34,10 +35,19 @@ class EntradaResource extends JsonResource
             'equipo' => new DmEquipoResource($this->whenLoaded('equipo')),
             'equipos' => DmEquipoResource::collection($this->whenLoaded('equipos')),
             'inventario_elementos' => InvElementoRedResource::collection($this->whenLoaded('inventarioElementos')),
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'created_at' => $this->formatDateTime($this->created_at),
+            'updated_at' => $this->formatDateTime($this->updated_at),
             'prev_id' => $this->getAttribute('prev_id'),
             'next_id' => $this->getAttribute('next_id'),
         ];
+    }
+
+    private function formatDateTime(mixed $value): ?string
+    {
+        if (! $value instanceof CarbonInterface) {
+            return null;
+        }
+
+        return $value->format('Y-m-d\TH:i:s');
     }
 }

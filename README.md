@@ -253,3 +253,9 @@ También disponible en UI:
 - Corrección de sincronización de imágenes en editor WYSIWYG: al eliminar una imagen del contenido, ahora se desasocia de la entrada (y se elimina temporal/persistida según corresponda).
 - Mejora en vista detalle de adjuntos de imagen: miniaturas clickeables con vista ampliada (modal).
 - Corrección de guardados consecutivos tras eliminar adjuntos: se limpian colas `adjuntos_eliminar` y `referencias_eliminar` después de guardar para evitar errores de validación por IDs ya eliminados.
+
+## Fixes recientes (pre-release v0.1.1)
+- Corrección de desfase de fecha en creación de entradas: al guardar una fecha/hora local ya no se serializa ni interpreta con conversión implícita a UTC, evitando que `fecha_inicio` se muestre o registre un día anterior al seleccionado.
+- Corrección de consistencia en render de fechas de entradas: creación/edición, detalle, gestión y Timeline ahora usan una misma lógica de parseo/formato para evitar diferencias entre vistas.
+- Corrección de filtros por rango de fecha en entradas: el parámetro `hasta` ahora cubre correctamente todo el día (`23:59:59`), evitando exclusiones involuntarias en consultas y listados.
+- Corrección de las vistas de presentación de fechas en Timeline y detalle de entrada: se aclaró visualmente el rango `inicio/fin` del evento y se agregó la auditoría de registro/publicación (`created_at`, `publicado_at`) sin alterar la cronología basada en `fecha_inicio`.

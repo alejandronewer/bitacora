@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class EntradaBitacora extends Model
 {
@@ -130,6 +131,32 @@ class EntradaBitacora extends Model
 
     public function scopeEnRango(Builder $query, $desde, $hasta): Builder
     {
-        return $query->whereBetween('fecha_inicio', [$desde, $hasta]);
+        $desdeNormalizado = self::normalizeBoundary($desde, true);
+        $hastaNormalizado = self::normalizeBoundary($hasta, false);
+
+        if (! $desdeNormalizado || ! $hastaNormalizado) {
+            return $query;
+        }
+
+        return $query->whereBetween('fecha_inicio', [$desdeNormalizado, $hastaNormalizado]);
+    }
+
+    private static function normalizeBoundary($value, bool $startOfDay): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            $date = Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($value))) {
+            $date = $startOfDay ? $date->startOfDay() : $date->endOfDay();
+        }
+
+        return $date->format('Y-m-d H:i:s');
     }
 }

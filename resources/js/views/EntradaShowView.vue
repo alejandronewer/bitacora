@@ -75,8 +75,8 @@
                   {{ entrada.titulo || 'Entrada sin título' }}
                 </h1>
                 <p class="text-sm text-slate-500 dark:text-[#92adc9] mt-2">
-                  {{ fechaLabel }} · Iniciado {{ horaInicio || 'sin hora registrada' }}
-                  <span v-if="horaFin"> · Finalizado {{ horaFin }}</span>
+                  Inicio: {{ fechaInicioDetalle }}
+                  <span v-if="entrada.fecha_fin"> · Fin: {{ fechaFinDetalle }}</span>
                 </p>
               </div>
               <button
@@ -290,6 +290,16 @@
               <div v-if="entrada.usuario?.correo" class="text-xs text-slate-500 dark:text-[#92adc9] mt-1">
                 {{ entrada.usuario.correo }}
               </div>
+              <dl class="mt-3 border-t border-slate-200 dark:border-border-dark pt-3 space-y-2 text-xs text-slate-600 dark:text-[#92adc9]">
+                <div class="flex items-center justify-between gap-2">
+                  <dt class="font-semibold text-slate-700 dark:text-white">Registrado</dt>
+                  <dd class="text-right">{{ fechaRegistroDetalle }}</dd>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <dt class="font-semibold text-slate-700 dark:text-white">Primera publicación</dt>
+                  <dd class="text-right">{{ fechaPublicacionDetalle }}</dd>
+                </div>
+              </dl>
             </div>
 
             <div class="rounded-xl border border-slate-200 dark:border-border-dark bg-slate-50/70 dark:bg-border-dark/60 p-4">
@@ -459,6 +469,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { fetchConfiguracionSistema } from '../api/configuracion';
 import UbicacionCodigoTooltip from '../components/UbicacionCodigoTooltip.vue';
+import { formatDateTimeValue } from '../utils/datetime';
 
 const route = useRoute();
 const router = useRouter();
@@ -484,32 +495,17 @@ const badgeClass = computed(() =>
     : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
 );
 
-const fechaLabel = computed(() => {
-  if (!entrada.value?.fecha_inicio) return 'Fecha no definida';
-  const date = new Date(entrada.value.fecha_inicio);
-  return new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' }).format(date);
-});
-
-const horaInicio = computed(() => {
-  if (!entrada.value?.fecha_inicio) return null;
-  const date = new Date(entrada.value.fecha_inicio);
-  return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit' }).format(date);
-});
-
-const horaFin = computed(() => {
-  if (!entrada.value?.fecha_fin) return null;
-  const date = new Date(entrada.value.fecha_fin);
-  return new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit' }).format(date);
-});
-
 const formatFechaDetalle = (value) => {
   if (!value) return 'Sin fecha registrada';
-  const date = new Date(value);
-  return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  return formatDateTimeValue(value);
 };
 
 const fechaInicioDetalle = computed(() => formatFechaDetalle(entrada.value?.fecha_inicio));
 const fechaFinDetalle = computed(() => formatFechaDetalle(entrada.value?.fecha_fin));
+const fechaRegistroDetalle = computed(() => formatFechaDetalle(entrada.value?.created_at));
+const fechaPublicacionDetalle = computed(() =>
+  entrada.value?.publicado_at ? formatFechaDetalle(entrada.value.publicado_at) : 'Sin publicación registrada'
+);
 
 const adjuntosList = computed(() => {
   const raw = entrada.value?.adjuntos;

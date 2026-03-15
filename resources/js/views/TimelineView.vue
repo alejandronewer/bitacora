@@ -197,9 +197,12 @@
               <span class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">{{ entrada.fecha_label }}</span>
               <span class="text-2xl font-black">{{ entrada.fecha_dia }}</span>
               <span class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase">{{ entrada.fecha_mes }}</span>
+              <span v-if="entrada.hora_inicio" class="mt-1 text-[11px] font-semibold text-[#92adc9]">
+                {{ entrada.hora_inicio }}
+              </span>
             </div>
             <div class="flex-1 flex flex-col gap-3">
-              <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="flex flex-wrap gap-2">
                   <span class="px-2 py-0.5 rounded text-[10px] font-bold border" :class="entrada.badge_class">
                     {{ entrada.badge_label }}
@@ -211,7 +214,13 @@
                     Publicado
                   </span>
                 </div>
-                <span class="text-xs text-[#92adc9] font-medium">Iniciado: {{ entrada.hora_inicio || 'No disponible' }}</span>
+                <span
+                  v-if="entrada.hora_fin_resumen"
+                  class="text-xs font-medium"
+                  :class="entrada.fin_otro_dia ? 'text-amber-600 dark:text-amber-300' : 'text-[#92adc9]'"
+                >
+                  Termina: {{ entrada.hora_fin_resumen }}
+                </span>
               </div>
               <h3 class="text-xl font-bold hover:text-primary cursor-pointer transition-colors" @click="openEntrada(entrada)">
                 {{ entrada.titulo || 'Entrada sin título' }}
@@ -394,6 +403,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchConfiguracionSistema } from '../api/configuracion';
+import { formatTimeValue, parseDateTimeValue } from '../utils/datetime';
 
 const entradas = ref([]);
 const loading = ref(false);
@@ -458,9 +468,6 @@ const pmActividadesFiltradas = computed(() => {
 const formatMes = (fecha) =>
   new Intl.DateTimeFormat('es-MX', { month: 'short' }).format(fecha).replace('.', '').toUpperCase();
 
-const formatHora = (fecha) =>
-  new Intl.DateTimeFormat('es-MX', { hour: '2-digit', minute: '2-digit' }).format(fecha);
-
 const formatTipoInventario = (tipo) => {
   const map = {
     nodo: 'Nodo',
@@ -482,8 +489,27 @@ const diffLabel = (fecha) => {
   return formatMes(fecha);
 };
 
+const isSameCalendarDay = (left, right) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
+
+const formatDiaMes = (fecha) => `${fecha.getDate()} ${formatMes(fecha)}`;
+
+const formatFinResumen = (inicio, fin) => {
+  if (!fin) return null;
+
+  const hora = formatTimeValue(fin);
+  if (isSameCalendarDay(inicio, fin)) {
+    return hora || 'Sin hora registrada';
+  }
+
+  return hora ? `${formatDiaMes(fin)} · ${hora}` : formatDiaMes(fin);
+};
+
 const buildEntradaCard = (entrada) => {
-  const fecha = entrada.fecha_inicio ? new Date(entrada.fecha_inicio) : new Date();
+  const fecha = parseDateTimeValue(entrada.fecha_inicio) || new Date();
+  const fechaFin = parseDateTimeValue(entrada.fecha_fin);
   const textoBase = entrada.cuerpo_texto || entrada.resumen_tecnico || '';
   const preview = textoBase.length > 200 ? `${textoBase.slice(0, 200)}...` : textoBase || 'Sin descripción registrada.';
 
@@ -499,7 +525,9 @@ const buildEntradaCard = (entrada) => {
     fecha_label: diffLabel(fecha),
     fecha_dia: fecha.getDate(),
     fecha_mes: formatMes(fecha),
-    hora_inicio: entrada.fecha_inicio ? formatHora(fecha) : null,
+    hora_inicio: entrada.fecha_inicio ? formatTimeValue(fecha) : null,
+    hora_fin_resumen: formatFinResumen(fecha, fechaFin),
+    fin_otro_dia: Boolean(fechaFin && !isSameCalendarDay(fecha, fechaFin)),
     preview,
     criterio,
     impacto,
